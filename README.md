@@ -1,24 +1,22 @@
-## AICamera
+# Caffe2 AICamera tutorial example
 
-AICamera is a demo app that was displayed at Facebook's F8 event.  The previous version (also on this repo) was getting quite old and attempted to demonstrate a build system that happened inside Android Studio.  This led to some hacky techniques and I decided to rewrite the demo with a prebuilt Caffe2 library (which can be built using `build_android.sh` in the Caffe2 source).
+This is an example for using Caffe2 on Android. See [the original README](README.orig.md) for details.
 
-![example](https://thumbs.gfycat.com/FlimsyInbornIndianabat-size_restricted.gif)
+## Using caffe2 from PyTorch master
 
-### Download
+Newer android seems to prefer clang, at least I couldn't find the gnu stl lib.
 
-    git clone https://github.com/caffe2/AICamera.git
+To compile libs for armeabi-v7a I used
+```
+ANDROID_NDK=~/Android/Sdk/ndk-bundle/ ./scripts/build_android.sh -DANDROID_TOOLCHAIN=clang
+```
+For x86 (useful to debug android apps) I needed to disable AVX. To do this, I inserted `if (NOT DISABLE_AVX)` and `endif()` before and after the AVX check in cmake/MiscCheck.cmake.
 
-### Build
+I then built with
+```
+ANDROID_NDK=~/Android/Sdk/ndk-bundle/ BUILD_ROOT=$(pwd)/build_android_x86   ./scripts/build_android.sh -DANDROID_TOOLCHAIN=clang  -DANDROID_ABI=x86 -DDISABLE_AVX=1
+```
 
-Click the green play button in Android Studio 3.0.1 and everything should build :)
+Then I copied the resulting `build_android*/lib/lib*` into the corresponding `x86` and `armeabi-v7a` subdirectories of `app/src/main/jniLibs`.
 
-### Tests
-
-| Device             | Network       |  FPS  |
-| ------------------ | ------------- | ----- |
-| Samsung Galaxy S7  | SqueezeNet    |  5.8  |
-| Google Pixel       | SqueezeNet    |  5.7  |
-
-### License
-
-Please see the LICENSE file in the root directory the source tree.
+You would likely want to replace the headers in app/src/main/cpp with those from torch/lib/include or so (possibly after building PyTorch).
