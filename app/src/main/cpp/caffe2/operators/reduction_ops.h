@@ -16,27 +16,22 @@ class SumElementsOp : public Operator<Context> {
 
   SumElementsOp(const OperatorDef& operator_def, Workspace* ws)
       : Operator<Context>(operator_def, ws),
-        average_(OperatorBase::GetSingleArgument<bool>("average", false)) {}
+        average_(this->template GetSingleArgument<bool>("average", false)) {}
   SumElementsOp(const OperatorDef& operator_def, Workspace* ws, bool average)
       : Operator<Context>(operator_def, ws), average_(average) {}
   ~SumElementsOp() {}
 
-  bool RunOnDevice() override
-// TODO: T21635002 fix float-divide-by-zero undefined behavior
-#if defined(__has_feature)
-#if __has_feature(__address_sanitizer__)
-      __attribute__((__no_sanitize__("float-divide-by-zero")))
-#endif
-#endif
-  {
+  bool RunOnDevice() override {
     auto& X = Input(0);
     auto* sum = Output(0);
-    sum->Resize(vector<TIndex>());
+    sum->Resize(vector<int64_t>());
+
     T* data = sum->template mutable_data<T>();
+
     math::Sum<T, Context>(
-      X.size(), X.template data<T>(), data, &context_, &scratch_);
-    if (average_) {
-      math::Scale<T, Context>(
+        X.size(), X.template data<T>(), data, &context_, &scratch_);
+    if (average_ && X.size() > 0) {
+      math::Scale<float, T, Context>(
           1,
           static_cast<T>(1.) / X.size(),
           sum->template data<T>(),
@@ -48,7 +43,30 @@ class SumElementsOp : public Operator<Context> {
 
  private:
   bool average_;
-  Tensor<Context> scratch_;
+  Tensor scratch_{Context::GetDeviceType()};
+};
+
+template <typename T, class Context>
+class SumElementsIntOp : public Operator<Context> {
+ public:
+  USE_OPERATOR_CONTEXT_FUNCTIONS;
+
+  SumElementsIntOp(const OperatorDef& operator_def, Workspace* ws)
+      : Operator<Context>(operator_def, ws) {}
+  ~SumElementsIntOp() {}
+
+  bool RunOnDevice() override {
+    auto& X = Input(0);
+    auto* sum = Output(0);
+    sum->Resize(vector<int64_t>());
+    T* data = sum->template mutable_data<T>();
+    math::Sum<T, Context>(
+        X.size(), X.template data<T>(), data, &context_, &scratch_);
+    return true;
+  }
+
+ private:
+  Tensor scratch_{Context::GetDeviceType()};
 };
 
 template <typename T, class Context>
@@ -58,7 +76,7 @@ class SumElementsGradientOp : public Operator<Context> {
 
   SumElementsGradientOp(const OperatorDef& operator_def, Workspace* ws)
       : Operator<Context>(operator_def, ws),
-        average_(OperatorBase::GetSingleArgument<bool>("average", false)) {}
+        average_(this->template GetSingleArgument<bool>("average", false)) {}
   SumElementsGradientOp(
       const OperatorDef& operator_def,
       Workspace* ws,
@@ -84,18 +102,18 @@ class SumSqrElementsOp : public Operator<Context> {
 
   template <typename T>
   bool DoRunWithType() {
-    bool average = OperatorBase::GetSingleArgument<bool>("average", false);
+    bool average = this->template GetSingleArgument<bool>("average", false);
     auto& X = Input(0);
     auto* sum = Output(0);
-    sum->Resize(vector<TIndex>());
+    sum->Resize(vector<int64_t>());
     math::SumSqr<T, Context>(
         X.size(),
         X.template data<T>(),
         sum->template mutable_data<T>(),
         &context_,
         &scratch_);
-    if (average) {
-      math::Scale<T, Context>(
+    if (average && X.size() > 0) {
+      math::Scale<float, T, Context>(
           1,
           float(1.) / X.size(),
           sum->template data<T>(),
@@ -106,7 +124,7 @@ class SumSqrElementsOp : public Operator<Context> {
   }
 
  private:
-  Tensor<Context> scratch_;
+  Tensor scratch_{Context::GetDeviceType()};
 };
 
 template <typename T, class Context, bool ROWWISE>
