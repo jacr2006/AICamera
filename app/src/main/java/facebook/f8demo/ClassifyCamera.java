@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
+import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -32,10 +33,10 @@ import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.Surface;
-import android.view.TextureView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -53,7 +54,7 @@ public class ClassifyCamera extends AppCompatActivity {
     private static final String TAG = "F8DEMO";
     private static final int REQUEST_CAMERA_PERMISSION = 200;
 
-    private TextureView textureView;
+    private ImageView outputView;
     private String cameraId;
     protected CameraDevice cameraDevice;
     protected CameraCaptureSession cameraCaptureSessions;
@@ -64,18 +65,21 @@ public class ClassifyCamera extends AppCompatActivity {
     private TextView tv;
     private String predictedClass = "none";
     private AssetManager mgr;
+    private Bitmap outputBitmap;
     private boolean processing = false;
+    private boolean cameraIsOpen = false;
     private Image image = null;
-    private boolean run_HWC = false;
 
 
     static {
         System.loadLibrary("native-lib");
     }
 
-    public native String classificationFromCaffe2(int h, int w, byte[] Y, byte[] U, byte[] V,
-                                                  int rowStride, int pixelStride, boolean r_hwc);
+    public native String torchTransform(Bitmap bitmap, int h, int w, byte[] Y, byte[] U, byte[] V,
+                                                  int yRowStride, int rowStride, int pixelStride);
     public native void initCaffe2(AssetManager mgr);
+
+
     private class SetUpNeuralNetwork extends AsyncTask<Void, Void, Void> {
         @Override
         protected Void doInBackground(Void[] v) {
@@ -104,8 +108,18 @@ public class ClassifyCamera extends AppCompatActivity {
 
         setContentView(R.layout.activity_classify_camera);
 
-        textureView = (TextureView) findViewById(R.id.textureView);
-        textureView.setSystemUiVisibility(SYSTEM_UI_FLAG_IMMERSIVE);
+        outputView = (ImageView) findViewById(R.id.outputView);
+        outputView.setSystemUiVisibility(SYSTEM_UI_FLAG_IMMERSIVE);
+        outputView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (! cameraIsOpen) {
+                    cameraIsOpen = true;
+                    openCamera();
+                }
+            }
+        });
+/*
         final GestureDetector gestureDetector = new GestureDetector(this.getApplicationContext(),
                 new GestureDetector.SimpleOnGestureListener(){
             @Override
@@ -130,20 +144,21 @@ public class ClassifyCamera extends AppCompatActivity {
             }
         });
 
-        textureView.setOnTouchListener(new View.OnTouchListener() {
+        outputView.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 return gestureDetector.onTouchEvent(event);
             }
         });
-
-        assert textureView != null;
-        textureView.setSurfaceTextureListener(textureListener);
+*/
+        assert outputView!= null;
+        //outputView.setSurfaceTextureListener(textureListener);
         tv = (TextView) findViewById(R.id.sample_text);
 
     }
 
-    TextureView.SurfaceTextureListener textureListener = new TextureView.SurfaceTextureListener() {
+
+    /*View.SurfaceTextureListener textureListener = new View.SurfaceTextureListener() {
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
             //open your camera here
@@ -160,7 +175,7 @@ public class ClassifyCamera extends AppCompatActivity {
         @Override
         public void onSurfaceTextureUpdated(SurfaceTexture surface) {
         }
-    };
+    }; */
     private final CameraDevice.StateCallback stateCallback = new CameraDevice.StateCallback() {
         @Override
         public void onOpened(CameraDevice camera) {
@@ -195,19 +210,16 @@ public class ClassifyCamera extends AppCompatActivity {
 
     protected void createCameraPreview() {
         try {
-            SurfaceTexture texture = textureView.getSurfaceTexture();
-            assert texture != null;
-            texture.setDefaultBufferSize(imageDimension.getWidth(), imageDimension.getHeight());
-            Surface surface = new Surface(texture);
             int width = 227;
             int height = 227;
+            outputBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
             ImageReader reader = ImageReader.newInstance(width, height, ImageFormat.YUV_420_888, 4);
             ImageReader.OnImageAvailableListener readerListener = new ImageReader.OnImageAvailableListener() {
                 @Override
                 public void onImageAvailable(ImageReader reader) {
                     try {
 
-                        image = reader.acquireNextImage();
+                        image = reader.acquireLatestImage();
                         if (processing) {
                             image.close();
                             return;
@@ -215,10 +227,12 @@ public class ClassifyCamera extends AppCompatActivity {
                         processing = true;
                         int w = image.getWidth();
                         int h = image.getHeight();
+
                         ByteBuffer Ybuffer = image.getPlanes()[0].getBuffer();
                         ByteBuffer Ubuffer = image.getPlanes()[1].getBuffer();
                         ByteBuffer Vbuffer = image.getPlanes()[2].getBuffer();
                         // TODO: use these for proper image processing on different formats.
+                        int yRowStride = image.getPlanes()[0].getRowStride();
                         int rowStride = image.getPlanes()[1].getRowStride();
                         int pixelStride = image.getPlanes()[1].getPixelStride();
                         byte[] Y = new byte[Ybuffer.capacity()];
@@ -228,13 +242,15 @@ public class ClassifyCamera extends AppCompatActivity {
                         Ubuffer.get(U);
                         Vbuffer.get(V);
 
-                        predictedClass = classificationFromCaffe2(h, w, Y, U, V,
-                                rowStride, pixelStride, run_HWC);
+                        predictedClass = torchTransform(outputBitmap, h, w, Y, U, V, yRowStride, rowStride, pixelStride);
+
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
                                 tv.setText(predictedClass);
+                                outputView.setImageBitmap(outputBitmap);
                                 processing = false;
+                                //openCamera();
                             }
                         });
 
@@ -246,11 +262,11 @@ public class ClassifyCamera extends AppCompatActivity {
                 }
             };
             reader.setOnImageAvailableListener(readerListener, mBackgroundHandler);
-            captureRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            captureRequestBuilder.addTarget(surface);
+            captureRequestBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            //captureRequestBuilder.addTarget(surface);
             captureRequestBuilder.addTarget(reader.getSurface());
 
-            cameraDevice.createCaptureSession(Arrays.asList(surface, reader.getSurface()), new CameraCaptureSession.StateCallback(){
+            cameraDevice.createCaptureSession(Arrays.asList(reader.getSurface()), new CameraCaptureSession.StateCallback(){
                 @Override
                 public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
                     if (null == cameraDevice) {
@@ -317,11 +333,11 @@ public class ClassifyCamera extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         startBackgroundThread();
-        if (textureView.isAvailable()) {
+        /*if (textureView.isAvailable()) {
             openCamera();
         } else {
             textureView.setSurfaceTextureListener(textureListener);
-        }
+        }*/
     }
 
     @Override

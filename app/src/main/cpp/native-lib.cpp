@@ -4,40 +4,40 @@
 #define PROTOBUF_USE_DLLS 1
 #define CAFFE2_USE_LITE_PROTO 1
 
-#include <caffe2/predictor/predictor.h>
-#include <caffe2/core/operator.h>
-#include <caffe2/core/timer.h>
+#include <torch/script.h>
 
-#include "caffe2/core/init.h"
-#include <caffe2/core/tensor.h>
 #include <android/asset_manager.h>
 #include <android/asset_manager_jni.h>
+#include <android/bitmap.h>
+
+
 #include <android/log.h>
-#include <ATen/ATen.h>
-#include "classes.h"
+#include <ATen/core/ArrayRef.h>
+#include <ATen/ArrayRef.h>
+//#include <arm_neon.h>
+
 #define IMG_H 227
 #define IMG_W 227
 #define IMG_C 3
 #define MAX_DATA_SIZE IMG_H * IMG_W * IMG_C
 #define alog(...) __android_log_print(ANDROID_LOG_ERROR, "F8DEMO", __VA_ARGS__);
 
-static caffe2::NetDef _initNet, _predictNet;
-static caffe2::Predictor *_predictor;
-static char raw_data[MAX_DATA_SIZE];
+static std::shared_ptr<torch::jit::script::Module> module;
 static float input_data[MAX_DATA_SIZE];
-static caffe2::Workspace ws;
 
-// A function to load the NetDefs from protobufs.
-void loadToNetDef(AAssetManager* mgr, caffe2::NetDef* net, const char *filename) {
-    AAsset* asset = AAssetManager_open(mgr, filename, AASSET_MODE_BUFFER);
+void load_model(AAssetManager* mgr, const char* fn) {
+    AAsset* asset = AAssetManager_open(mgr, "model_traced.pt", AASSET_MODE_BUFFER);
     assert(asset != nullptr);
     const void *data = AAsset_getBuffer(asset);
     assert(data != nullptr);
     off_t len = AAsset_getLength(asset);
     assert(len != 0);
-    if (!net->ParseFromArray(data, len)) {
-        alog("Couldn't parse net from data.\n");
+    std::string asset_s((const char *) data, len);
+    {
+        auto stream = std::istringstream(asset_s);
+        module = torch::jit::load(stream);
     }
+    assert(module != nullptr);
     AAsset_close(asset);
 }
 
@@ -46,31 +46,56 @@ void
 Java_facebook_f8demo_ClassifyCamera_initCaffe2(
         JNIEnv* env,
         jobject /* this */,
-        jobject assetManager) {
-    AAssetManager *mgr = AAssetManager_fromJava(env, assetManager);
-    alog("Attempting to load protobuf netdefs...");
-    loadToNetDef(mgr, &_initNet,   "squeeze_init_net.pb");
-    loadToNetDef(mgr, &_predictNet,"squeeze_predict_net.pb");
-    alog("done.");
-    alog("Instantiating predictor...");
-    _predictor = new caffe2::Predictor(_initNet, _predictNet);
+        jobject jAssetManager) {
+    alog("Loading model");
+    auto mgr = AAssetManager_fromJava(env, jAssetManager);
+    load_model(mgr, "model_traced.pt");
     alog("done.")
 }
 
-float avg_fps = 0.0;
-float total_fps = 0.0;
-int iters_fps = 10;
+static at::Tensor transform_tensor(at::Tensor& input) {
+    at::Tensor output;
+    if (module != nullptr) {
+        std::vector<torch::jit::IValue> inputs;
+        inputs.push_back(input);
+        output = module->forward(inputs).toTensor();
+    }
+    return output;
+}
 
 extern "C"
-JNIEXPORT jstring JNICALL
-Java_facebook_f8demo_ClassifyCamera_classificationFromCaffe2(
-        JNIEnv *env,
-        jobject /* this */,
-        jint h, jint w, jbyteArray Y, jbyteArray U, jbyteArray V,
-        jint rowStride, jint pixelStride,
-        jboolean infer_HWC) {
-    if (!_predictor) {
-        return env->NewStringUTF("Loading...");
+JNIEXPORT jstring JNICALL Java_facebook_f8demo_ClassifyCamera_torchTransform(JNIEnv * env, jobject  obj, jobject bitmap,
+                                                                          jint h, jint w, jbyteArray Y, jbyteArray U, jbyteArray V,
+                                                                          jint yRowStride, jint rowStride, jint pixelStride) {
+    AndroidBitmapInfo  info;
+    void*              pixels;
+    int                ret;
+    static int         init;
+
+    if (!init) {
+        //init_tables();
+        //stats_init(&stats);
+        init = 1;
+    }
+
+    if ((ret = AndroidBitmap_getInfo(env, bitmap, &info)) < 0) {
+        alog("AndroidBitmap_getInfo() failed ! error=%d", ret);
+        return env->NewStringUTF("error bitmap");
+    }
+
+    if (info.format != ANDROID_BITMAP_FORMAT_RGB_565) {
+        alog("Bitmap format is not RGB_565 !");
+        return env->NewStringUTF("error bitmap2");
+    }
+
+    if ((ret = AndroidBitmap_lockPixels(env, bitmap, &pixels)) < 0) {
+        alog("AndroidBitmap_lockPixels() failed ! error=%d", ret);
+        return env->NewStringUTF("error bitmap3");
+    }
+
+
+    if (module == nullptr) {
+        return env->NewStringUTF("Loading X...");
     }
     jsize Y_len = env->GetArrayLength(Y);
     jbyte * Y_data = env->GetByteArrayElements(Y, 0);
@@ -85,6 +110,7 @@ Java_facebook_f8demo_ClassifyCamera_classificationFromCaffe2(
 #define min(a,b) ((a) > (b)) ? (b) : (a)
 #define max(a,b) ((a) > (b)) ? (a) : (b)
 
+    // poor person's center crop
     auto h_offset = max(0, (h - IMG_H) / 2);
     auto w_offset = max(0, (w - IMG_W) / 2);
 
@@ -98,83 +124,49 @@ Java_facebook_f8demo_ClassifyCamera_classificationFromCaffe2(
     }
 
     for (auto i = 0; i < iter_h; ++i) {
-        jbyte* Y_row = &Y_data[(h_offset + i) * w];
-        jbyte* U_row = &U_data[(h_offset + i) / 2 * rowStride];
-        jbyte* V_row = &V_data[(h_offset + i) / 2 * rowStride];
+        jbyte* Y_row = &Y_data[(h_offset + i) * yRowStride];
+        jbyte* U_row = &U_data[((h_offset + i)/2) * rowStride]; // strides for U V are guaranteed to be the same, YUV_420 means that the vertical resolution of u/v is subsampled by a factor two
+        jbyte* V_row = &V_data[((h_offset + i)/2) * rowStride];
         for (auto j = 0; j < iter_w; ++j) {
             // Tested on Pixel and S7.
-            char y = Y_row[w_offset + j];
-            char u = U_row[pixelStride * ((w_offset+j)/pixelStride)];
-            char v = V_row[pixelStride * ((w_offset+j)/pixelStride)];
+            uint8_t y = Y_row[w_offset + j] & 0xff; // pixelStride is guaranteed to be 1
+            uint8_t u = U_row[pixelStride * ((w_offset+j)/2)] & 0xff;
+            uint8_t v = V_row[pixelStride * ((w_offset+j)/2)] & 0xff;
 
-            float b_mean = 104.00698793f;
-            float g_mean = 116.66876762f;
-            float r_mean = 122.67891434f;
+            //float b_mean = 104.00698793f;
+            //float g_mean = 116.66876762f;
+            //float r_mean = 122.67891434f;
 
-            auto b_i = 0 * IMG_H * IMG_W + j * IMG_W + i;
-            auto g_i = 1 * IMG_H * IMG_W + j * IMG_W + i;
-            auto r_i = 2 * IMG_H * IMG_W + j * IMG_W + i;
+            auto r_i = 0 * IMG_H * IMG_W + j * IMG_W + (iter_h - 1 - i);
+            auto g_i = 1 * IMG_H * IMG_W + j * IMG_W + (iter_h - 1 - i);
+            auto b_i = 2 * IMG_H * IMG_W + j * IMG_W + (iter_h - 1 - i);
 
-            if (infer_HWC) {
-                b_i = (j * IMG_W + i) * IMG_C;
-                g_i = (j * IMG_W + i) * IMG_C + 1;
-                r_i = (j * IMG_W + i) * IMG_C + 2;
-            }
-/*
-  R = Y + 1.402 (V-128)
-  G = Y - 0.34414 (U-128) - 0.71414 (V-128)
-  B = Y + 1.772 (U-V)
- */
-            input_data[r_i] = -r_mean + (float) ((float) min(255., max(0., (float) (y + 1.402 * (v - 128)))));
-            input_data[g_i] = -g_mean + (float) ((float) min(255., max(0., (float) (y - 0.34414 * (u - 128) - 0.71414 * (v - 128)))));
-            input_data[b_i] = -b_mean + (float) ((float) min(255., max(0., (float) (y + 1.772 * (u - v)))));
+            input_data[r_i] = (float) ((float) min(255., max(0., (float) (y + 1.370705 * ((float) v - 128)))));
+            input_data[g_i] = (float) ((float) min(255., max(0., (float) (y - 0.337633 * ((float) u - 128) - 0.698001 * ((float)v - 128)))));
+            input_data[b_i] = (float) ((float) min(255., max(0., (float) (y + 1.732446 * ((float) u - 128)))));
 
         }
     }
 
-    caffe2::TensorCPU input;
-    if (infer_HWC) {
-        input = caffe2::Tensor(std::vector<int>({IMG_H, IMG_W, IMG_C}), caffe2::CPU);
-    } else {
-        input = caffe2::Tensor(std::vector<int>({1, IMG_C, IMG_H, IMG_W}), caffe2::CPU);
-    }
-    memcpy(input.mutable_data<float>(), input_data, IMG_H * IMG_W * IMG_C * sizeof(float));
-    std::vector<caffe2::TensorCPU> input_vec({input});
-    std::vector<caffe2::TensorCPU> output_vec(1);
-    caffe2::Timer t;
-    t.Start();
-    (*_predictor)(input_vec, &output_vec);
-    float fps = 1000/t.MilliSeconds();
-    total_fps += fps;
-    avg_fps = total_fps / iters_fps;
-    total_fps -= avg_fps;
+    auto input_ = torch::tensor(at::ArrayRef<float>(input_data, MAX_DATA_SIZE));
+    auto input = input_.view({1, IMG_C, IMG_H, IMG_W })/255;
 
-    constexpr int k = 5;
-    float max[k] = {0};
-    int max_index[k] = {0};
-    // Find the top-k results manually.
-    for (auto output : output_vec) {
-        auto data = output.data<float>();
-        for (auto i = 0; i < output.size(); ++i) {
-            for (auto j = 0; j < k; ++j) {
-                if (data[i] > max[j]) {
-                    for (auto _j = k - 1; _j > j; --_j) {
-                        max[_j - 1] = max[_j];
-                        max_index[_j - 1] = max_index[_j];
-                    }
-                    max[j] = data[i];
-                    max_index[j] = i;
-                    goto skip;
-                }
-            }
-            skip:;
+    auto output_ = transform_tensor(input).clamp(0, 1.0);
+    auto output = output_.accessor<float, 4>()[0];
+
+    for (int yy = 0; yy < info.height; yy++) {
+        uint16_t*  line = (uint16_t*)pixels;
+        for (int xx = 0; xx < info.width; xx++) {
+            line[xx] = (static_cast<uint16_t>(output[0][yy][xx]*0x1f+0.499) << 11)
+                       + (static_cast<uint16_t>(output[1][yy][xx]*0x3f+0.499) << 5)
+                       + (static_cast<uint16_t>(output[2][yy][xx]*0x1f+0.499));
         }
-    }
-    std::ostringstream stringStream;
-    stringStream << avg_fps << " FPS\n";
 
-    for (auto j = 0; j < k; ++j) {
-        stringStream << j << ": " << imagenet_classes[max_index[j]] << " - " << max[j] / 10 << "%\n";
+        // go to next line
+        pixels = (char*)pixels + info.stride;
     }
-    return env->NewStringUTF(stringStream.str().c_str());
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+    return env->NewStringUTF("Super!");
 }
+

@@ -11,8 +11,8 @@
     android:theme="@android:style/Theme.Holo.NoActionBar"
     >
 
-    <TextureView
-        android:id="@+id/textureView"
+    <ImageView
+        android:id="@+id/outputView"
         android:layout_width="395dp"
         android:layout_height="659dp"
         app:layout_constraintTop_toTopOf="parent"
