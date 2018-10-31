@@ -38,7 +38,7 @@ import java.util.Arrays;
 
 import static android.view.View.SYSTEM_UI_FLAG_IMMERSIVE;
 
-public class ClassifyCamera extends AppCompatActivity {
+public class NeuStyleCamera extends AppCompatActivity {
     private static final String TAG = "FULL_NEURAL_STYLE";
     private static final int REQUEST_CAMERA_PERMISSION = 200;
 
@@ -230,7 +230,7 @@ public class ClassifyCamera extends AppCompatActivity {
                 }
                 @Override
                 public void onConfigureFailed(@NonNull CameraCaptureSession cameraCaptureSession) {
-                    Toast.makeText(ClassifyCamera.this, "Configuration change", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(NeuStyleCamera.this, "Configuration change", Toast.LENGTH_SHORT).show();
                 }
             }, null);
         } catch (CameraAccessException e) {
@@ -247,7 +247,7 @@ public class ClassifyCamera extends AppCompatActivity {
             assert map != null;
             imageDimension = map.getOutputSizes(SurfaceTexture.class)[0];
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(ClassifyCamera.this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CAMERA_PERMISSION);
+                ActivityCompat.requestPermissions(NeuStyleCamera.this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CAMERA_PERMISSION);
                 return;
             }
             manager.openCamera(cameraId, stateCallback, null);
@@ -279,7 +279,7 @@ public class ClassifyCamera extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         if (requestCode == REQUEST_CAMERA_PERMISSION) {
             if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
-                Toast.makeText(ClassifyCamera.this, "You can't use this app without granting permission", Toast.LENGTH_LONG).show();
+                Toast.makeText(NeuStyleCamera.this, "You can't use this app without granting permission", Toast.LENGTH_LONG).show();
                 finish();
             }
         }

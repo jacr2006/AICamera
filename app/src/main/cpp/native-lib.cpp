@@ -52,7 +52,7 @@ static double now_seconds(void) {
 
 extern "C"
 void
-Java_mathinf_neustyle_ClassifyCamera_initCaffe2(
+Java_mathinf_neustyle_NeuStyleCamera_initCaffe2(
         JNIEnv* env,
         jobject /* this */,
         jobject jAssetManager) {
@@ -73,7 +73,7 @@ static at::Tensor transform_tensor(at::Tensor& input) {
 }
 
 extern "C"
-JNIEXPORT jstring JNICALL Java_mathinf_neustyle_ClassifyCamera_torchTransform(JNIEnv * env, jobject  obj, jobject bitmap,
+JNIEXPORT jstring JNICALL Java_mathinf_neustyle_NeuStyleCamera_torchTransform(JNIEnv * env, jobject  obj, jobject bitmap,
                                                                           jint h, jint w, jbyteArray Y, jbyteArray U, jbyteArray V,
                                                                           jint yRowStride, jint rowStride, jint pixelStride, jint sensorOrientation) {
     AndroidBitmapInfo  info;
