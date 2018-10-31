@@ -1,12 +1,11 @@
-package facebook.f8demo;
+package mathinf.neustyle;
 
 import android.Manifest;
-import android.app.ActionBar;
+import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.graphics.ImageFormat;
-import android.graphics.PixelFormat;
 import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -16,12 +15,10 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
-import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.annotation.NonNull;
@@ -30,28 +27,19 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.GestureDetector;
-import android.view.MotionEvent;
-import android.view.Surface;
 import android.view.View;
 import android.view.Window;
-import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static android.view.View.SYSTEM_UI_FLAG_IMMERSIVE;
 
 public class ClassifyCamera extends AppCompatActivity {
-    private static final String TAG = "F8DEMO";
+    private static final String TAG = "FULL_NEURAL_STYLE";
     private static final int REQUEST_CAMERA_PERMISSION = 200;
 
     private ImageView outputView;
@@ -69,6 +57,7 @@ public class ClassifyCamera extends AppCompatActivity {
     private boolean processing = false;
     private boolean cameraIsOpen = false;
     private Image image = null;
+    private int sensorOrientation = 0;
 
 
     static {
@@ -76,7 +65,7 @@ public class ClassifyCamera extends AppCompatActivity {
     }
 
     public native String torchTransform(Bitmap bitmap, int h, int w, byte[] Y, byte[] U, byte[] V,
-                                                  int yRowStride, int rowStride, int pixelStride);
+                                                  int yRowStride, int rowStride, int pixelStride, int sensorOrientation);
     public native void initCaffe2(AssetManager mgr);
 
 
@@ -98,6 +87,12 @@ public class ClassifyCamera extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         this.requestWindowFeature(Window.FEATURE_NO_TITLE);
 
+        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        ActivityManager.MemoryInfo info = new ActivityManager.MemoryInfo();
+        manager.getMemoryInfo(info);
+
+
+
         mgr = getResources().getAssets();
 
         new SetUpNeuralNetwork().execute();
@@ -113,69 +108,19 @@ public class ClassifyCamera extends AppCompatActivity {
         outputView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (! cameraIsOpen) {
+                if (! cameraIsOpen && ! processing) {
                     cameraIsOpen = true;
                     openCamera();
                 }
             }
         });
-/*
-        final GestureDetector gestureDetector = new GestureDetector(this.getApplicationContext(),
-                new GestureDetector.SimpleOnGestureListener(){
-            @Override
-            public boolean onDoubleTap(MotionEvent e) {
-                return true;
-            }
 
-            @Override
-            public void onLongPress(MotionEvent e) {
-                super.onLongPress(e);
-
-            }
-
-            @Override
-            public boolean onDoubleTapEvent(MotionEvent e) {
-                return true;
-            }
-
-            @Override
-            public boolean onDown(MotionEvent e) {
-                return true;
-            }
-        });
-
-        outputView.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                return gestureDetector.onTouchEvent(event);
-            }
-        });
-*/
         assert outputView!= null;
         //outputView.setSurfaceTextureListener(textureListener);
         tv = (TextView) findViewById(R.id.sample_text);
 
     }
 
-
-    /*View.SurfaceTextureListener textureListener = new View.SurfaceTextureListener() {
-        @Override
-        public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-            //open your camera here
-            openCamera();
-        }
-        @Override
-        public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
-            // Transform you image captured size according to the surface width and height
-        }
-        @Override
-        public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-            return false;
-        }
-        @Override
-        public void onSurfaceTextureUpdated(SurfaceTexture surface) {
-        }
-    }; */
     private final CameraDevice.StateCallback stateCallback = new CameraDevice.StateCallback() {
         @Override
         public void onOpened(CameraDevice camera) {
@@ -220,10 +165,13 @@ public class ClassifyCamera extends AppCompatActivity {
                     try {
 
                         image = reader.acquireLatestImage();
+                        if (image == null)
+                            return;
                         if (processing) {
                             image.close();
                             return;
                         }
+                        closeCamera();
                         processing = true;
                         int w = image.getWidth();
                         int h = image.getHeight();
@@ -241,8 +189,13 @@ public class ClassifyCamera extends AppCompatActivity {
                         Ybuffer.get(Y);
                         Ubuffer.get(U);
                         Vbuffer.get(V);
-
-                        predictedClass = torchTransform(outputBitmap, h, w, Y, U, V, yRowStride, rowStride, pixelStride);
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                tv.setText("Working...");
+                            }
+                        });
+                        predictedClass = torchTransform(outputBitmap, h, w, Y, U, V, yRowStride, rowStride, pixelStride, sensorOrientation);
 
                         runOnUiThread(new Runnable() {
                             @Override
@@ -250,10 +203,10 @@ public class ClassifyCamera extends AppCompatActivity {
                                 tv.setText(predictedClass);
                                 outputView.setImageBitmap(outputBitmap);
                                 processing = false;
-                                //openCamera();
                             }
                         });
-
+                    } catch (Exception e) {
+                        tv.setText(e.getMessage());
                     } finally {
                         if (image != null) {
                             image.close();
@@ -289,6 +242,7 @@ public class ClassifyCamera extends AppCompatActivity {
         try {
             cameraId = manager.getCameraIdList()[0];
             CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
+            sensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
             StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             assert map != null;
             imageDimension = map.getOutputSizes(SurfaceTexture.class)[0];
@@ -318,6 +272,7 @@ public class ClassifyCamera extends AppCompatActivity {
         if (null != cameraDevice) {
             cameraDevice.close();
             cameraDevice = null;
+            cameraIsOpen = false;
         }
     }
     @Override
@@ -333,8 +288,9 @@ public class ClassifyCamera extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         startBackgroundThread();
+        /* openCamera();*/
         /*if (textureView.isAvailable()) {
-            openCamera();
+
         } else {
             textureView.setSurfaceTextureListener(textureListener);
         }*/

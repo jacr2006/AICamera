@@ -46,7 +46,7 @@ static_assert(
 /* #undef CAFFE2_DISABLE_NUMA */
 
 #ifndef USE_NUMPY
-#define USE_NUMPY
+/* #undef USE_NUMPY */
 #endif
 
 #ifndef EIGEN_MPL2_ONLY

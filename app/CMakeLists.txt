@@ -80,4 +80,4 @@ target_link_libraries(
         torch
         jnigraphics
         ${log-lib}
-        ${android-lib})
+        android)

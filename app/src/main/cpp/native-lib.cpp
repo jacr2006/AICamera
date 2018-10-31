@@ -1,6 +1,8 @@
 #include <jni.h>
 #include <string>
 #include <algorithm>
+#include <ctime>
+
 #define PROTOBUF_USE_DLLS 1
 #define CAFFE2_USE_LITE_PROTO 1
 
@@ -26,7 +28,7 @@ static std::shared_ptr<torch::jit::script::Module> module;
 static float input_data[MAX_DATA_SIZE];
 
 void load_model(AAssetManager* mgr, const char* fn) {
-    AAsset* asset = AAssetManager_open(mgr, "model_traced.pt", AASSET_MODE_BUFFER);
+    AAsset* asset = AAssetManager_open(mgr, "traced_model.pt", AASSET_MODE_BUFFER);
     assert(asset != nullptr);
     const void *data = AAsset_getBuffer(asset);
     assert(data != nullptr);
@@ -41,9 +43,16 @@ void load_model(AAssetManager* mgr, const char* fn) {
     AAsset_close(asset);
 }
 
+static double now_seconds(void) {
+    struct timespec res;
+    clock_gettime(CLOCK_REALTIME, &res);
+    return res.tv_sec + (double) res.tv_nsec * 1e-9;
+}
+
+
 extern "C"
 void
-Java_facebook_f8demo_ClassifyCamera_initCaffe2(
+Java_mathinf_neustyle_ClassifyCamera_initCaffe2(
         JNIEnv* env,
         jobject /* this */,
         jobject jAssetManager) {
@@ -64,9 +73,9 @@ static at::Tensor transform_tensor(at::Tensor& input) {
 }
 
 extern "C"
-JNIEXPORT jstring JNICALL Java_facebook_f8demo_ClassifyCamera_torchTransform(JNIEnv * env, jobject  obj, jobject bitmap,
+JNIEXPORT jstring JNICALL Java_mathinf_neustyle_ClassifyCamera_torchTransform(JNIEnv * env, jobject  obj, jobject bitmap,
                                                                           jint h, jint w, jbyteArray Y, jbyteArray U, jbyteArray V,
-                                                                          jint yRowStride, jint rowStride, jint pixelStride) {
+                                                                          jint yRowStride, jint rowStride, jint pixelStride, jint sensorOrientation) {
     AndroidBitmapInfo  info;
     void*              pixels;
     int                ret;
@@ -123,6 +132,26 @@ JNIEXPORT jstring JNICALL Java_facebook_f8demo_ClassifyCamera_torchTransform(JNI
         iter_w = w;
     }
 
+    int cosr = 1;
+    int sinr = 0;
+    int roti_offset = 0;
+    int rotj_offset = 0;
+
+    if (sensorOrientation == 90) {
+        cosr = 0;
+        sinr = 1;
+        rotj_offset = iter_h - 1;
+    } else if (sensorOrientation == 180) {
+        cosr = -1;
+        sinr = 0;
+        roti_offset = iter_h - 1;
+        rotj_offset = iter_w - 1;
+    } else if (sensorOrientation == 270) {
+        cosr = 0;
+        sinr = -1;
+        roti_offset = iter_w - 1;
+    }
+
     for (auto i = 0; i < iter_h; ++i) {
         jbyte* Y_row = &Y_data[(h_offset + i) * yRowStride];
         jbyte* U_row = &U_data[((h_offset + i)/2) * rowStride]; // strides for U V are guaranteed to be the same, YUV_420 means that the vertical resolution of u/v is subsampled by a factor two
@@ -133,40 +162,54 @@ JNIEXPORT jstring JNICALL Java_facebook_f8demo_ClassifyCamera_torchTransform(JNI
             uint8_t u = U_row[pixelStride * ((w_offset+j)/2)] & 0xff;
             uint8_t v = V_row[pixelStride * ((w_offset+j)/2)] & 0xff;
 
-            //float b_mean = 104.00698793f;
-            //float g_mean = 116.66876762f;
-            //float r_mean = 122.67891434f;
+            int roti = roti_offset + cosr * i + sinr * j;
+            int rotj = rotj_offset - sinr * i + cosr * i;
+            // this relies on IMG_H == IMG_W to not risk bad things!
 
-            auto r_i = 0 * IMG_H * IMG_W + j * IMG_W + (iter_h - 1 - i);
-            auto g_i = 1 * IMG_H * IMG_W + j * IMG_W + (iter_h - 1 - i);
-            auto b_i = 2 * IMG_H * IMG_W + j * IMG_W + (iter_h - 1 - i);
+            auto r_i = 0 * IMG_H * IMG_W + roti * IMG_W + rotj;
+            auto g_i = 1 * IMG_H * IMG_W + roti * IMG_W + rotj;
+            auto b_i = 2 * IMG_H * IMG_W + roti * IMG_W + rotj;
 
             input_data[r_i] = (float) ((float) min(255., max(0., (float) (y + 1.370705 * ((float) v - 128)))));
             input_data[g_i] = (float) ((float) min(255., max(0., (float) (y - 0.337633 * ((float) u - 128) - 0.698001 * ((float)v - 128)))));
             input_data[b_i] = (float) ((float) min(255., max(0., (float) (y + 1.732446 * ((float) u - 128)))));
-
         }
     }
 
     auto input_ = torch::tensor(at::ArrayRef<float>(input_data, MAX_DATA_SIZE));
     auto input = input_.view({1, IMG_C, IMG_H, IMG_W })/255;
 
-    auto output_ = transform_tensor(input).clamp(0, 1.0);
-    auto output = output_.accessor<float, 4>()[0];
-
-    for (int yy = 0; yy < info.height; yy++) {
-        uint16_t*  line = (uint16_t*)pixels;
-        for (int xx = 0; xx < info.width; xx++) {
-            line[xx] = (static_cast<uint16_t>(output[0][yy][xx]*0x1f+0.499) << 11)
-                       + (static_cast<uint16_t>(output[1][yy][xx]*0x3f+0.499) << 5)
-                       + (static_cast<uint16_t>(output[2][yy][xx]*0x1f+0.499));
-        }
-
-        // go to next line
-        pixels = (char*)pixels + info.stride;
+    std::string s;
+    at::Tensor output_;
+    double duration = -now_seconds();
+    try {
+        output_ = transform_tensor(input).clamp(0, 1.0);
+    } catch (std::runtime_error e) {
+        s = e.what();
     }
+    duration += now_seconds();
 
+    if (output_.defined()) {
+        auto output = output_.accessor<float, 4>()[0];
+        for (int yy = 0; yy < info.height; yy++) {
+            uint16_t *line = (uint16_t *) pixels;
+            for (int xx = 0; xx < info.width; xx++) {
+                line[xx] = (static_cast<uint16_t>(output[0][yy][xx] * 0x1f + 0.499) << 11)
+                           + (static_cast<uint16_t>(output[1][yy][xx] * 0x3f + 0.499) << 5)
+                           + (static_cast<uint16_t>(output[2][yy][xx] * 0x1f + 0.499));
+            }
+
+            // go to next line
+            pixels = (char *) pixels + info.stride;
+        }
+    }
     AndroidBitmap_unlockPixels(env, bitmap);
-    return env->NewStringUTF("Super!");
+
+    if (! s.empty()) {
+        return env->NewStringUTF(s.c_str());
+    }
+    std::stringstream stream;
+    stream << "Neural time: " << duration << "s";
+    return env->NewStringUTF(stream.str().c_str());
 }
 

@@ -402,13 +402,13 @@ static inline std::tuple<Tensor &,Tensor &> log_sigmoid_forward_out(Tensor & out
 static inline std::tuple<Tensor,Tensor> log_sigmoid_forward(const Tensor & self);
 static inline Tensor & log_sigmoid_backward_out(Tensor & grad_input, const Tensor & grad_output, const Tensor & self, const Tensor & buffer);
 static inline Tensor log_sigmoid_backward(const Tensor & grad_output, const Tensor & self, const Tensor & buffer);
-static inline Tensor & rrelu_with_noise_out(Tensor & output, const Tensor & self, const Tensor & noise, Scalar lower=0.125, Scalar upper=0.3333333333333333, bool training=false, Generator * generator=nullptr);
-static inline Tensor rrelu_with_noise(const Tensor & self, const Tensor & noise, Scalar lower=0.125, Scalar upper=0.3333333333333333, bool training=false, Generator * generator=nullptr);
+static inline Tensor & rrelu_with_noise_out(Tensor & output, const Tensor & self, const Tensor & noise, Scalar lower=0.125, Scalar upper=0.333333333333, bool training=false, Generator * generator=nullptr);
+static inline Tensor rrelu_with_noise(const Tensor & self, const Tensor & noise, Scalar lower=0.125, Scalar upper=0.333333333333, bool training=false, Generator * generator=nullptr);
 static inline Tensor & rrelu_with_noise_forward_out(Tensor & output, const Tensor & self, const Tensor & noise, Scalar lower, Scalar upper, bool training, Generator * generator);
 static inline Tensor rrelu_with_noise_forward(const Tensor & self, const Tensor & noise, Scalar lower, Scalar upper, bool training, Generator * generator);
 static inline Tensor & rrelu_with_noise_backward_out(Tensor & grad_input, const Tensor & grad_output, const Tensor & self, const Tensor & noise, Scalar lower, Scalar upper, bool training);
 static inline Tensor rrelu_with_noise_backward(const Tensor & grad_output, const Tensor & self, const Tensor & noise, Scalar lower, Scalar upper, bool training);
-static inline Tensor & rrelu_with_noise_(Tensor & self, const Tensor & noise, Scalar lower=0.125, Scalar upper=0.3333333333333333, bool training=false, Generator * generator=nullptr);
+static inline Tensor & rrelu_with_noise_(Tensor & self, const Tensor & noise, Scalar lower=0.125, Scalar upper=0.333333333333, bool training=false, Generator * generator=nullptr);
 static inline Tensor & rrelu_with_noise_forward_(Tensor & self, const Tensor & noise, Scalar lower, Scalar upper, bool training, Generator * generator);
 static inline Tensor & softplus_out(Tensor & output, const Tensor & self, Scalar beta=1, Scalar threshold=20);
 static inline Tensor softplus(const Tensor & self, Scalar beta=1, Scalar threshold=20);
@@ -951,6 +951,10 @@ static inline Tensor mv(const Tensor & self, const Tensor & vec);
 static inline Tensor & mv_out(Tensor & result, const Tensor & self, const Tensor & vec);
 static inline Tensor mvlgamma(const Tensor & self, int64_t p);
 static inline Tensor narrow(const Tensor & self, int64_t dim, int64_t start, int64_t length);
+static inline Tensor nnpack_spatial_convolution(const Tensor & input, const Tensor & weight, const Tensor & bias, int64_t kW, int64_t kH, int64_t padW, int64_t padH);
+static inline std::tuple<Tensor,Tensor,Tensor> nnpack_spatial_convolution_backward(const Tensor & input, const Tensor & grad_output, const Tensor & weight, int64_t kW, int64_t kH, int64_t padW, int64_t padH, std::array<bool,3> output_mask);
+static inline Tensor nnpack_spatial_convolution_backward_input(const Tensor & input, const Tensor & grad_output, const Tensor & weight, int64_t kW, int64_t kH, int64_t padW, int64_t padH);
+static inline Tensor nnpack_spatial_convolution_backward_weight(const Tensor & input, IntList weightsize, const Tensor & grad_output, int64_t kW, int64_t kH, int64_t padW, int64_t padH);
 static inline Tensor ones(IntList size, const TensorOptions & options={});
 static inline Tensor & ones_out(Tensor & result, IntList size);
 static inline Tensor ones_like(const Tensor & self);
@@ -1000,8 +1004,8 @@ static inline Tensor RoiPooling2d_backward(const Tensor & input, const Tensor & 
 static inline Tensor round(const Tensor & self);
 static inline Tensor & round_(Tensor & self);
 static inline Tensor & round_out(Tensor & result, const Tensor & self);
-static inline Tensor rrelu(const Tensor & self, Scalar lower=0.125, Scalar upper=0.3333333333333333, bool training=false, Generator * generator=nullptr);
-static inline Tensor & rrelu_(Tensor & self, Scalar lower=0.125, Scalar upper=0.3333333333333333, bool training=false, Generator * generator=nullptr);
+static inline Tensor rrelu(const Tensor & self, Scalar lower=0.125, Scalar upper=0.333333333333, bool training=false, Generator * generator=nullptr);
+static inline Tensor & rrelu_(Tensor & self, Scalar lower=0.125, Scalar upper=0.333333333333, bool training=false, Generator * generator=nullptr);
 static inline Tensor relu(const Tensor & self);
 static inline Tensor & relu_(Tensor & self);
 static inline Tensor prelu(const Tensor & self, const Tensor & weight);
@@ -4017,6 +4021,18 @@ static inline Tensor mvlgamma(const Tensor & self, int64_t p) {
 }
 static inline Tensor narrow(const Tensor & self, int64_t dim, int64_t start, int64_t length) {
     return detail::infer_type(self).narrow(self, dim, start, length);
+}
+static inline Tensor nnpack_spatial_convolution(const Tensor & input, const Tensor & weight, const Tensor & bias, int64_t kW, int64_t kH, int64_t padW, int64_t padH) {
+    return detail::infer_type(input).nnpack_spatial_convolution(input, weight, bias, kW, kH, padW, padH);
+}
+static inline std::tuple<Tensor,Tensor,Tensor> nnpack_spatial_convolution_backward(const Tensor & input, const Tensor & grad_output, const Tensor & weight, int64_t kW, int64_t kH, int64_t padW, int64_t padH, std::array<bool,3> output_mask) {
+    return detail::infer_type(input).nnpack_spatial_convolution_backward(input, grad_output, weight, kW, kH, padW, padH, output_mask);
+}
+static inline Tensor nnpack_spatial_convolution_backward_input(const Tensor & input, const Tensor & grad_output, const Tensor & weight, int64_t kW, int64_t kH, int64_t padW, int64_t padH) {
+    return detail::infer_type(input).nnpack_spatial_convolution_backward_input(input, grad_output, weight, kW, kH, padW, padH);
+}
+static inline Tensor nnpack_spatial_convolution_backward_weight(const Tensor & input, IntList weightsize, const Tensor & grad_output, int64_t kW, int64_t kH, int64_t padW, int64_t padH) {
+    return detail::infer_type(input).nnpack_spatial_convolution_backward_weight(input, weightsize, grad_output, kW, kH, padW, padH);
 }
 static inline Tensor ones(IntList size, const TensorOptions & options) {
     const DeviceGuard guard(options.device());

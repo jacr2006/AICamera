@@ -1,4 +1,4 @@
-package facebook.f8demo;
+package mathinf.full_neural_style;
 
 import org.junit.Test;
 

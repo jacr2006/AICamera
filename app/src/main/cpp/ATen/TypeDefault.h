@@ -1132,6 +1132,10 @@ struct CAFFE2_API TypeDefault : public TypeExtendedInterface {
   Tensor & mvlgamma_(Tensor & self, int64_t p) const override;
   Tensor narrow_copy(const Tensor & self, int64_t dim, int64_t start, int64_t length) const override;
   Tensor narrow(const Tensor & self, int64_t dim, int64_t start, int64_t length) const override;
+  Tensor nnpack_spatial_convolution(const Tensor & input, const Tensor & weight, const Tensor & bias, int64_t kW, int64_t kH, int64_t padW, int64_t padH) const override;
+  std::tuple<Tensor,Tensor,Tensor> nnpack_spatial_convolution_backward(const Tensor & input, const Tensor & grad_output, const Tensor & weight, int64_t kW, int64_t kH, int64_t padW, int64_t padH, std::array<bool,3> output_mask) const override;
+  Tensor nnpack_spatial_convolution_backward_input(const Tensor & input, const Tensor & grad_output, const Tensor & weight, int64_t kW, int64_t kH, int64_t padW, int64_t padH) const override;
+  Tensor nnpack_spatial_convolution_backward_weight(const Tensor & input, IntList weightsize, const Tensor & grad_output, int64_t kW, int64_t kH, int64_t padW, int64_t padH) const override;
   Tensor & ones_out(Tensor & result, IntList size) const override;
   Tensor ones_like(const Tensor & self) const override;
   Tensor pairwise_distance(const Tensor & x1, const Tensor & x2, double p, double eps, bool keepdim) const override;

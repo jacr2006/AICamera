@@ -1,4 +1,4 @@
-package facebook.f8demo;
+package mathinf.full_neural_style;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;

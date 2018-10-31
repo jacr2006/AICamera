@@ -757,6 +757,10 @@ struct CAFFE2_API TypeExtendedInterface : public Type {
   virtual std::tuple<Tensor &,Tensor &> mode_out(Tensor & values, Tensor & indices, const Tensor & self, int64_t dim, bool keepdim) const = 0;
   virtual Tensor & mul_out(Tensor & result, const Tensor & self, const Tensor & other) const = 0;
   virtual Tensor & mv_out(Tensor & result, const Tensor & self, const Tensor & vec) const = 0;
+  virtual Tensor nnpack_spatial_convolution(const Tensor & input, const Tensor & weight, const Tensor & bias, int64_t kW, int64_t kH, int64_t padW, int64_t padH) const = 0;
+  virtual std::tuple<Tensor,Tensor,Tensor> nnpack_spatial_convolution_backward(const Tensor & input, const Tensor & grad_output, const Tensor & weight, int64_t kW, int64_t kH, int64_t padW, int64_t padH, std::array<bool,3> output_mask) const = 0;
+  virtual Tensor nnpack_spatial_convolution_backward_input(const Tensor & input, const Tensor & grad_output, const Tensor & weight, int64_t kW, int64_t kH, int64_t padW, int64_t padH) const = 0;
+  virtual Tensor nnpack_spatial_convolution_backward_weight(const Tensor & input, IntList weightsize, const Tensor & grad_output, int64_t kW, int64_t kH, int64_t padW, int64_t padH) const = 0;
   virtual Tensor & ones_out(Tensor & result, IntList size) const = 0;
   virtual Tensor ones_like(const Tensor & self) const = 0;
   virtual Tensor pairwise_distance(const Tensor & x1, const Tensor & x2, double p, double eps, bool keepdim) const = 0;
