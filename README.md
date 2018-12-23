@@ -4,19 +4,38 @@ This is an example for using Caffe2 on Android. See [the original README](README
 
 ## Using caffe2 from PyTorch master
 
-Newer android seems to prefer clang, at least I couldn't find the gnu stl lib.
+PyTorch folder is at `$PYTORCH_ROOT`
+This repository folder is at `$AICAMERA_ROOT`
+Android NDK folder is at `$ANDROID_NDK`
 
-To compile libs for armeabi-v7a I used
-```
-ANDROID_NDK=~/Android/Sdk/ndk-bundle/ ./scripts/build_android.sh -DANDROID_TOOLCHAIN=clang
-```
-For x86 (useful to debug android apps) I needed to disable AVX. To do this, I inserted `if (NOT DISABLE_AVX)` and `endif()` before and after the AVX check in cmake/MiscCheck.cmake.
+Then, do the following:
 
-I then built with
+1. Build caffe2 android libs and copy them over into AICamera app folder
+
 ```
-ANDROID_NDK=~/Android/Sdk/ndk-bundle/ BUILD_ROOT=$(pwd)/build_android_x86   ./scripts/build_android.sh -DANDROID_TOOLCHAIN=clang  -DANDROID_ABI=x86 -DDISABLE_AVX=1
+# make sure $PYTORCH_ROOT, $AICAMERA_ROOT and $ANDROID_NDK are set
+pushd $PYTORCH_ROOT
+
+./scripts/build_android.sh
+mv build_android build_android_arm
+
+# copy headers
+cp -r install/include/* $AICAMERA_ROOT/app/src/main/cpp/
+
+# copy arm libs
+rm -rf $AICAMERA_ROOT/app/src/main/jniLibs/armeabi-v7a/
+mkdir $AICAMERA_ROOT/app/src/main/jniLibs/armeabi-v7a
+cp -r build_android_arm/lib/lib* $AICAMERA_ROOT/app/src/main/jniLibs/armeabi-v7a/
+
+
+./scripts/build_android.sh -DANDROID_ABI=x86
+mv build_android build_android_x86
+
+# copy x86 libs
+rm -rf $AICAMERA_ROOT/app/src/main/jniLibs/x86/
+mkdir $AICAMERA_ROOT/app/src/main/jniLibs/x86
+cp -r build_android_x86/lib/lib* $AICAMERA_ROOT/app/src/main/jniLibs/x86/
+
 ```
 
-Then I copied the resulting `build_android*/lib/lib*` into the corresponding `x86` and `armeabi-v7a` subdirectories of `app/src/main/jniLibs`.
-
-You would likely want to replace the headers in app/src/main/cpp with those from torch/lib/include or so (possibly after building PyTorch).
+2. Build the AICamera app using the `Build -> Make Project` menu option in Android Studio
