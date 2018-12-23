@@ -148,6 +148,18 @@ set_target_properties(
     ${CMAKE_CURRENT_LIST_DIR}/src/main/jniLibs/${ANDROID_ABI}/libnnpack.a
     )
 
+add_library(
+        QNNPACK
+        STATIC
+        IMPORTED
+)
+set_target_properties(
+        QNNPACK
+        PROPERTIES IMPORTED_LOCATION
+        ${CMAKE_CURRENT_LIST_DIR}/src/main/jniLibs/${ANDROID_ABI}/libqnnpack.a
+)
+
+
 include_directories( src/main/cpp )
 
 find_library(
@@ -161,6 +173,7 @@ target_link_libraries(
         caffe2
         -Wl,--no-whole-archive
         NNPACK
+        QNNPACK
         caffe2_protos
 #        caffe2_detectron_ops
         onnx_proto
@@ -172,5 +185,6 @@ target_link_libraries(
         thread_pool
         cpuinfo
         clog
+
         ${log-lib}
         ${android-lib})
