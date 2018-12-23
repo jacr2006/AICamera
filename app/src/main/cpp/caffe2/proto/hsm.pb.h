@@ -60,7 +60,7 @@ inline void CAFFE2_API InitDefaults() {
   InitDefaultsPathNodeProto();
 }
 }  // namespace protobuf_caffe2_2fproto_2fhsm_2eproto
-namespace caffe2 { const ::std::string& GetEmptyStringAlreadyInited(); 
+namespace caffe2 {
 class HierarchyProto;
 class HierarchyProtoDefaultTypeInternal;
 CAFFE2_API extern HierarchyProtoDefaultTypeInternal _HierarchyProto_default_instance_;
@@ -122,7 +122,7 @@ class CAFFE2_API NodeProto : public ::google::protobuf::Message /* @@protoc_inse
     return reinterpret_cast<const NodeProto*>(
                &_NodeProto_default_instance_);
   }
-  static  int const kIndexInFileMessages =
+  static PROTOBUF_CONSTEXPR int const kIndexInFileMessages =
     0;
 
   void Swap(NodeProto* other);
@@ -289,7 +289,7 @@ class CAFFE2_API TreeProto : public ::google::protobuf::Message /* @@protoc_inse
     return reinterpret_cast<const TreeProto*>(
                &_TreeProto_default_instance_);
   }
-  static  int const kIndexInFileMessages =
+  static PROTOBUF_CONSTEXPR int const kIndexInFileMessages =
     1;
 
   void Swap(TreeProto* other);
@@ -401,7 +401,7 @@ class CAFFE2_API HierarchyProto : public ::google::protobuf::Message /* @@protoc
     return reinterpret_cast<const HierarchyProto*>(
                &_HierarchyProto_default_instance_);
   }
-  static  int const kIndexInFileMessages =
+  static PROTOBUF_CONSTEXPR int const kIndexInFileMessages =
     2;
 
   void Swap(HierarchyProto* other);
@@ -524,7 +524,7 @@ class CAFFE2_API PathProto : public ::google::protobuf::Message /* @@protoc_inse
     return reinterpret_cast<const PathProto*>(
                &_PathProto_default_instance_);
   }
-  static  int const kIndexInFileMessages =
+  static PROTOBUF_CONSTEXPR int const kIndexInFileMessages =
     3;
 
   void Swap(PathProto* other);
@@ -647,7 +647,7 @@ class CAFFE2_API PathNodeProto : public ::google::protobuf::Message /* @@protoc_
     return reinterpret_cast<const PathNodeProto*>(
                &_PathNodeProto_default_instance_);
   }
-  static  int const kIndexInFileMessages =
+  static PROTOBUF_CONSTEXPR int const kIndexInFileMessages =
     4;
 
   void Swap(PathNodeProto* other);
@@ -840,7 +840,7 @@ inline void NodeProto::clear_has_name() {
   _has_bits_[0] &= ~0x00000001u;
 }
 inline void NodeProto::clear_name() {
-  name_.ClearToEmptyNoArena(&GetEmptyStringAlreadyInited());
+  name_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   clear_has_name();
 }
 inline const ::std::string& NodeProto::name() const {
@@ -849,38 +849,38 @@ inline const ::std::string& NodeProto::name() const {
 }
 inline void NodeProto::set_name(const ::std::string& value) {
   set_has_name();
-  name_.SetNoArena(&GetEmptyStringAlreadyInited(), value);
+  name_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
   // @@protoc_insertion_point(field_set:caffe2.NodeProto.name)
 }
 #if LANG_CXX11
 inline void NodeProto::set_name(::std::string&& value) {
   set_has_name();
   name_.SetNoArena(
-    &GetEmptyStringAlreadyInited(), ::std::move(value));
+    &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
   // @@protoc_insertion_point(field_set_rvalue:caffe2.NodeProto.name)
 }
 #endif
 inline void NodeProto::set_name(const char* value) {
   GOOGLE_DCHECK(value != NULL);
   set_has_name();
-  name_.SetNoArena(&GetEmptyStringAlreadyInited(), ::std::string(value));
+  name_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
   // @@protoc_insertion_point(field_set_char:caffe2.NodeProto.name)
 }
 inline void NodeProto::set_name(const char* value, size_t size) {
   set_has_name();
-  name_.SetNoArena(&GetEmptyStringAlreadyInited(),
+  name_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
       ::std::string(reinterpret_cast<const char*>(value), size));
   // @@protoc_insertion_point(field_set_pointer:caffe2.NodeProto.name)
 }
 inline ::std::string* NodeProto::mutable_name() {
   set_has_name();
   // @@protoc_insertion_point(field_mutable:caffe2.NodeProto.name)
-  return name_.MutableNoArena(&GetEmptyStringAlreadyInited());
+  return name_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
 }
 inline ::std::string* NodeProto::release_name() {
   // @@protoc_insertion_point(field_release:caffe2.NodeProto.name)
   clear_has_name();
-  return name_.ReleaseNoArena(&GetEmptyStringAlreadyInited());
+  return name_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
 }
 inline void NodeProto::set_allocated_name(::std::string* name) {
   if (name != NULL) {
@@ -888,7 +888,7 @@ inline void NodeProto::set_allocated_name(::std::string* name) {
   } else {
     clear_has_name();
   }
-  name_.SetAllocatedNoArena(&GetEmptyStringAlreadyInited(), name);
+  name_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), name);
   // @@protoc_insertion_point(field_set_allocated:caffe2.NodeProto.name)
 }
 

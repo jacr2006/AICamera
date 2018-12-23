@@ -48,7 +48,7 @@ inline void CAFFE2_API InitDefaults() {
   InitDefaultsPredictorConsts();
 }
 }  // namespace protobuf_caffe2_2fproto_2fpredictor_5fconsts_2eproto
-namespace caffe2 { const ::std::string& GetEmptyStringAlreadyInited(); 
+namespace caffe2 {
 class PredictorConsts;
 class PredictorConstsDefaultTypeInternal;
 CAFFE2_API extern PredictorConstsDefaultTypeInternal _PredictorConsts_default_instance_;
@@ -98,7 +98,7 @@ class CAFFE2_API PredictorConsts : public ::google::protobuf::Message /* @@proto
     return reinterpret_cast<const PredictorConsts*>(
                &_PredictorConsts_default_instance_);
   }
-  static  int const kIndexInFileMessages =
+  static PROTOBUF_CONSTEXPR int const kIndexInFileMessages =
     0;
 
   void Swap(PredictorConsts* other);

@@ -24,26 +24,26 @@ static_assert(
    CAFFE2_VERSION_PATCH)
 
 /* #undef CAFFE2_ANDROID */
-#define CAFFE2_BUILD_SHARED_LIBS
-#define CAFFE2_FORCE_FALLBACK_CUDA_MPI
+/* #undef CAFFE2_BUILD_SHARED_LIBS */
+/* #undef CAFFE2_FORCE_FALLBACK_CUDA_MPI */
 /* #undef CAFFE2_HAS_MKL_DNN */
 /* #undef CAFFE2_HAS_MKL_SGEMM_PACK */
-#define CAFFE2_PERF_WITH_AVX
-#define CAFFE2_PERF_WITH_AVX2
+/* #undef CAFFE2_PERF_WITH_AVX */
+/* #undef CAFFE2_PERF_WITH_AVX2 */
+/* #undef CAFFE2_PERF_WITH_AVX512 */
 /* #undef CAFFE2_THREADPOOL_MAIN_IMBALANCE */
 /* #undef CAFFE2_THREADPOOL_STATS */
 #define CAFFE2_USE_EXCEPTION_PTR
 /* #undef CAFFE2_USE_ACCELERATE */
 /* #undef CAFFE2_USE_CUDNN */
-/* #undef CAFFE2_USE_EIGEN_FOR_BLAS */
+#define CAFFE2_USE_EIGEN_FOR_BLAS
 /* #undef CAFFE2_USE_FBCODE */
 /* #undef CAFFE2_USE_GOOGLE_GLOG */
 /* #undef CAFFE2_USE_LITE_PROTO */
 /* #undef CAFFE2_USE_MKL */
-/* #undef CAFFE2_USE_IDEEP */
+/* #undef CAFFE2_USE_MKLDNN */
 /* #undef CAFFE2_USE_NVTX */
 /* #undef CAFFE2_USE_TRT */
-/* #undef CAFFE2_DISABLE_NUMA */
 
 #ifndef USE_NUMPY
 #define USE_NUMPY
@@ -55,28 +55,30 @@ static_assert(
 
 // Useful build settings that are recorded in the compiled binary
 #define CAFFE2_BUILD_STRINGS { \
-  {"CXX_FLAGS", "--std=c++11  -fvisibility-inlines-hidden -D_FORCE_INLINES -D_MWAITXINTRIN_H_INCLUDED -D__STRICT_ANSI__ -fopenmp -O2 -fPIC -Wno-narrowing -Wall -Wextra -Wno-missing-field-initializers -Wno-type-limits -Wno-array-bounds -Wno-unknown-pragmas -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-result -Wno-strict-overflow -Wno-strict-aliasing -Wno-error=deprecated-declarations -Wno-stringop-overflow -Wno-error=pedantic -Wno-error=redundant-decls -Wno-error=old-style-cast -faligned-new -Wno-unused-but-set-variable -Wno-maybe-uninitialized -Wno-stringop-overflow"}, \
+  {"CXX_FLAGS", "-isystem /Users/soumith/code/aicam/android-ndk-r18b/sysroot/usr/include/arm-linux-androideabi -g -DANDROID -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -march=armv7-a -mfloat-abi=softfp -mfpu=vfpv3-d16 -mthumb -mfpu=neon -Wa,--noexecstack -Wformat -Werror=format-security -std=c++11 -frtti -fexceptions  -Wno-deprecated -fvisibility-inlines-hidden -O2 -fPIC -Wno-narrowing -Wall -Wextra -Wno-missing-field-initializers -Wno-type-limits -Wno-array-bounds -Wno-unknown-pragmas -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -Wno-unused-result -Wno-strict-overflow -Wno-strict-aliasing -Wno-error=deprecated-declarations -Wno-error=pedantic -Wno-error=redundant-decls -Wno-error=old-style-cast -Wno-invalid-partial-specialization -Wno-typedef-redefinition -Wno-unknown-warning-option -Wno-unused-private-field -Wno-inconsistent-missing-override -Wno-aligned-allocation-unavailable -Wno-c++14-extensions -Wno-constexpr-not-const -Wno-missing-braces -Qunused-arguments -Wno-unused-but-set-variable -Wno-maybe-uninitialized"}, \
   {"BUILD_TYPE", "Release"}, \
-  {"BLAS", "MKL"}, \
-  {"USE_CUDA", "0"}, \
+  {"BLAS", "Eigen"}, \
+  {"USE_CUDA", "OFF"}, \
   {"USE_NCCL", "OFF"}, \
-  {"USE_MPI", "ON"}, \
+  {"USE_MPI", "OFF"}, \
   {"USE_GFLAGS", "OFF"}, \
   {"USE_GLOG", "OFF"}, \
   {"USE_GLOO", ""}, \
-  {"USE_NNPACK", "1"}, \
+  {"USE_NNPACK", "ON"}, \
   {"USE_OPENMP", "OFF"}, \
-  {"FORCE_FALLBACK_CUDA_MPI", "1"}, \
+  {"FORCE_FALLBACK_CUDA_MPI", ""}, \
   {"HAS_MKL_DNN", ""}, \
   {"HAS_MKL_SGEMM_PACK", ""}, \
-  {"PERF_WITH_AVX", "1"}, \
-  {"PERF_WITH_AVX2", "1"}, \
+  {"PERF_WITH_AVX", ""}, \
+  {"PERF_WITH_AVX2", ""}, \
+  {"PERF_WITH_AVX512", ""}, \
   {"USE_EXCEPTION_PTR", "1"}, \
   {"USE_ACCELERATE", ""}, \
-  {"USE_EIGEN_FOR_BLAS", ""}, \
+  {"USE_EIGEN_FOR_BLAS", "ON"}, \
   {"USE_LITE_PROTO", ""}, \
   {"USE_MKL", ""}, \
+  {"USE_MKLDNN", ""}, \
   {"USE_NVTX", ""}, \
   {"USE_TRT", ""}, \
-  {"DISABLE_NUMA", ""}, \
+  {"DISABLE_NUMA", "1"},   \
 }
